@@ -133,6 +133,8 @@ typedef struct WlEglDisplayRec {
     struct wl_eglstream_display    *wlStreamDpy;
     struct wl_eglstream_controller *wlStreamCtl;
     struct zwp_linux_dmabuf_v1     *wlDmaBuf;
+    struct wl_proxy                 *stereoManager;
+    struct wl_proxy                 *stereoViewporter;
     struct wp_linux_drm_syncobj_manager_v1 *wlDrmSyncobj;
     unsigned int                    wlStreamCtlVer;
     struct wp_presentation         *wpPresentation;

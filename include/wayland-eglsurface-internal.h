@@ -31,6 +31,10 @@
 #include "wayland-eglutils.h"
 #include "wayland-eglsurface.h"
 
+#ifndef EGL_MULTIVIEW_VIEW_COUNT_EXT
+#define EGL_MULTIVIEW_VIEW_COUNT_EXT 0x3134
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -103,6 +107,9 @@ struct WlEglSurfaceRec {
     struct wl_surface    *wlSurface;
     int                   width, height;
     int                   dx,    dy;
+    EGLint                multiviewViewCount;
+    struct wl_proxy       *stereoContent;
+    struct wl_proxy       *stereoViewport;
 
     WlEglSurfaceCtx ctx;
     struct wl_list  oldCtxList;

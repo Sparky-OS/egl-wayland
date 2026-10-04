@@ -50,6 +50,7 @@ src = [
     'wayland-eglhandle.c',
     'wayland-external-exports.c',
     'wayland-drm.c',
+    'wayland-stereo.c',
 
     wayland_eglstream_protocol_c,
     wayland_eglstream_client_protocol_h,

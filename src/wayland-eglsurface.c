@@ -21,6 +21,7 @@
  */
 
 #include "wayland-eglsurface-internal.h"
+#include "wayland-stereo.h"
 #include "wayland-eglstream-client-protocol.h"
 #include "wayland-eglstream-controller-client-protocol.h"
 #include "linux-dmabuf-unstable-v1-client-protocol.h"
@@ -713,6 +714,12 @@ static struct wl_buffer_listener wl_buffer_listener = {
     wl_buffer_release
 };
 
+static int
+wlEglBufferWidth(const WlEglSurface *surface, int width)
+{
+    return width * (surface->multiviewViewCount > 1 ? 2 : 1);
+}
+
 static void *
 create_wl_eglstream(WlEglSurface *surface,
                     int32_t handle,
@@ -732,7 +739,7 @@ create_wl_eglstream(WlEglSurface *surface,
 
     if (surface->isSurfaceProducer) {
         assert(window);
-        width  = window->width;
+        width  = wlEglBufferWidth(surface, window->width);
         height = window->height;
     } else {
         width  = surface->width;
@@ -1380,7 +1387,7 @@ acquire_surface_image(WlEglDisplay *display, WlEglSurface *surface)
         }
 
         image->buffer = zwp_linux_buffer_params_v1_create_immed(params,
-                                                                surface->width,
+                                                                wlEglBufferWidth(surface, surface->width),
                                                                 surface->height,
                                                                 format, 0);
 
@@ -1927,7 +1934,7 @@ create_surface_context(WlEglSurface *surface)
         winDy     = window->dy;
 
         /* Width and height are the first and second attributes respectively */
-        surface->attribs[1] = winWidth;
+        surface->attribs[1] = wlEglBufferWidth(surface, winWidth);
         surface->attribs[3] = winHeight;
     } else {
         winWidth  = surface->width;
@@ -2047,6 +2054,11 @@ create_surface_context(WlEglSurface *surface)
         surface->dy = winDy;
         window->attached_width = winWidth;
         window->attached_height = winHeight;
+    }
+
+    if (surface->stereoViewport) {
+        wlEglStereoViewportSetDestination(surface->stereoViewport,
+                                           surface->width, surface->height);
     }
 
     return EGL_SUCCESS;
@@ -2345,6 +2357,9 @@ static EGLBoolean validateSurfaceAttrib(EGLAttrib attrib, EGLAttrib value)
                 value == EGL_FALSE) ? EGL_TRUE :
                                       EGL_FALSE;
 
+    case EGL_MULTIVIEW_VIEW_COUNT_EXT:
+        return value >= 1 && value <= 2;
+
     /* If attribute is supported/unsupported for both EGL_WINDOW_BIT and
      * EGL_STREAM_BIT_KHR, then that will be handled inside the actual
      * eglCreateStreamProducerSurfaceKHR() */
@@ -2392,6 +2407,9 @@ static EGLint assignWlEglSurfaceAttribs(WlEglSurface *surface,
                 surface->presentOpaque = attribs[i + 1];
                 continue;
             }
+            if (attribs[i] == EGL_MULTIVIEW_VIEW_COUNT_EXT) {
+                surface->multiviewViewCount = (EGLint)attribs[i + 1];
+            }
             if ((attribs[i] != EGL_RENDER_BUFFER) &&
                 (attribs[i] != EGL_POST_SUB_BUFFER_SUPPORTED_NV)) {
                 int_attribs[nAttribs++] = (EGLint)attribs[i];
@@ -2430,6 +2448,18 @@ EGLBoolean wlEglQuerySurfaceHook(EGLDisplay dpy, EGLSurface eglSurface,
 
     if (attribute == EGL_PRESENT_OPAQUE_EXT) {
         *value = surface->presentOpaque;
+        ret = EGL_TRUE;
+        goto done;
+    }
+
+    if (attribute == EGL_MULTIVIEW_VIEW_COUNT_EXT) {
+        *value = surface->multiviewViewCount;
+        ret = EGL_TRUE;
+        goto done;
+    }
+
+    if (attribute == EGL_WIDTH && surface->multiviewViewCount > 1) {
+        *value = surface->width;
         ret = EGL_TRUE;
         goto done;
     }
@@ -2523,6 +2553,19 @@ static EGLBoolean wlEglDestroySurface(EGLDisplay dpy, EGLSurface eglSurface)
     if (surface->wlSyncobjSurf) {
         wp_linux_drm_syncobj_surface_v1_destroy(surface->wlSyncobjSurf);
         wp_linux_drm_syncobj_timeline_v1_destroy(surface->wlAcquireTimeline);
+    }
+
+    if (surface->stereoViewport) {
+        wl_proxy_marshal_flags(surface->stereoViewport, 0, NULL,
+                               wl_proxy_get_version(surface->stereoViewport),
+                               0);
+        surface->stereoViewport = NULL;
+    }
+    if (surface->stereoContent) {
+        wl_proxy_marshal_flags(surface->stereoContent, 0, NULL,
+                               wl_proxy_get_version(surface->stereoContent),
+                               0);
+        surface->stereoContent = NULL;
     }
 
     if (surface->presentFeedbackQueue != NULL) {
@@ -2638,6 +2681,7 @@ wlEglInitializeSurfaceCommon(WlEglDisplay *display,
     surface->syncPoint = 1;
     surface->refCount = 1;
     surface->isDestroyed = EGL_FALSE;
+    surface->multiviewViewCount = 1;
     wl_list_init(&surface->ctx.streamImages);
     wl_list_init(&surface->oldCtxList);
 
@@ -2783,6 +2827,26 @@ EGLSurface wlEglCreatePlatformWindowSurfaceHook(EGLDisplay dpy,
     err = assignWlEglSurfaceAttribs(surface, attribs);
     if (err != EGL_SUCCESS) {
         goto fail;
+    }
+
+    if (surface->multiviewViewCount > 1) {
+        if (!display->stereoManager || !display->stereoViewporter) {
+            err = EGL_BAD_MATCH;
+            goto fail;
+        }
+        surface->stereoContent = wlEglStereoContentCreate(
+            display->stereoManager, surface->wlSurface);
+        surface->stereoViewport = wlEglStereoViewportGet(
+            display->stereoViewporter, surface->wlSurface);
+        if (!surface->stereoContent || !surface->stereoViewport) {
+            err = EGL_BAD_ALLOC;
+            goto fail;
+        }
+        wl_proxy_set_queue(surface->stereoContent, surface->wlEventQueue);
+        wl_proxy_set_queue(surface->stereoViewport, surface->wlEventQueue);
+        wlEglStereoContentSetContent(surface->stereoContent, 3);
+        wlEglStereoViewportSetDestination(surface->stereoViewport,
+                                           window->width, window->height);
     }
 
     /*
