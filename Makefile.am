@@ -42,6 +42,7 @@ libnvidia_egl_wayland_la_SOURCES =                            \
     src/wayland-eglutils.c                                    \
     src/wayland-eglhandle.c                                   \
     src/wayland-drm.c                                         \
+    src/wayland-stereo.c                                      \
     src/wayland-external-exports.c
 
 libnvidia_egl_wayland_la_SOURCES += \
@@ -57,6 +58,7 @@ libnvidia_egl_wayland_la_SOURCES += \
     include/wayland-eglutils.h            \
     include/wayland-external-exports.h    \
     include/wayland-thread.h              \
+    include/wayland-stereo.h              \
     wayland-egl/wayland-egl-ext.h
 
 libnvidia_egl_wayland_la_built_public_protocols =             \

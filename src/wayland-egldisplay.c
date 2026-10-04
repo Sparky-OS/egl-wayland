@@ -28,6 +28,7 @@
 #include "wayland-thread.h"
 #include "wayland-eglsurface-internal.h"
 #include "wayland-eglhandle.h"
+#include "wayland-stereo.h"
 #include "wayland-eglutils.h"
 #include "wayland-drm-client-protocol.h"
 #include "wayland-drm.h"
@@ -487,6 +488,14 @@ registry_handle_global(void *data,
                                                  version > 6 ? 6 : version);
         }
         display->dmaBufProtocolVersion = version;
+    } else if (strcmp(interface,
+                      wl_egl_stereo_content_manager_interface.name) == 0) {
+        display->stereoManager = wl_registry_bind(
+            registry, name, &wl_egl_stereo_content_manager_interface, 1);
+    } else if (strcmp(interface,
+                      wl_egl_stereo_viewporter_interface.name) == 0) {
+        display->stereoViewporter = wl_registry_bind(
+            registry, name, &wl_egl_stereo_viewporter_interface, 1);
     } else if (strcmp(interface, "wp_presentation") == 0) {
         display->wpPresentation = wl_registry_bind(registry,
                                                    name,
@@ -937,6 +946,18 @@ static EGLBoolean terminateDisplay(WlEglDisplay *display, EGLBoolean globalTeard
         if (display->wlStreamCtl) {
             wl_eglstream_controller_destroy(display->wlStreamCtl);
             display->wlStreamCtl = NULL;
+        }
+        if (display->stereoManager) {
+            wl_proxy_marshal_flags(display->stereoManager, 0, NULL,
+                                   wl_proxy_get_version(display->stereoManager),
+                                   0);
+            display->stereoManager = NULL;
+        }
+        if (display->stereoViewporter) {
+            wl_proxy_marshal_flags(display->stereoViewporter, 0, NULL,
+                                   wl_proxy_get_version(display->stereoViewporter),
+                                   0);
+            display->stereoViewporter = NULL;
         }
         if (display->wpPresentation) {
             wp_presentation_destroy(display->wpPresentation);
@@ -1628,6 +1649,22 @@ EGLBoolean wlEglInitializeHook(EGLDisplay dpy, EGLint *major, EGLint *minor)
     if (ret < 0) {
         err = EGL_BAD_ALLOC;
         goto fail;
+    }
+
+    if (display->stereoManager && display->stereoViewporter &&
+        !wlEglFindExtension("EGL_EXT_multiview_window",
+                            display->extensionString)) {
+        const size_t old_len = strlen(display->extensionString);
+        const char *name = " EGL_EXT_multiview_window";
+        char *extensions = malloc(old_len + strlen(name) + 1);
+        if (!extensions) {
+            err = EGL_BAD_ALLOC;
+            goto fail;
+        }
+        memcpy(extensions, display->extensionString, old_len);
+        strcpy(extensions + old_len, name);
+        free(display->extensionString);
+        display->extensionString = extensions;
     }
 
     /* We haven't created any surfaces yet, so no need to reallocate. */
