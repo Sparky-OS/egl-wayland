@@ -1,3 +1,28 @@
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset=".github/sparky-stereo-os/sparkyos-swirl-light-128.png">
+  <img src=".github/sparky-stereo-os/sparkyos-swirl-dark-128.png" alt="SparkyOS" width="128" height="128">
+</picture>
+
+Sparky Stereo OS
+----------------
+
+This is the stereo version of egl-wayland by Sparky Stereo OS, forked from [NVIDIA/egl-wayland](https://github.com/NVIDIA/egl-wayland).
+It adds a multiview stereo declaration for Wayland surfaces.
+
+Where it comes from:
+
+- [egl-wayland](https://github.com/NVIDIA/egl-wayland) is made by NVIDIA Corporation.
+- [Debian](https://www.debian.org/) is the base of the system.
+- [SparkyLinux](https://sparkylinux.org/), by Paweł "pavroo" Pijanowski, builds on Debian.
+- [Sparky Stereo OS](https://github.com/Sparky-OS/sparky-stereo-os) is the stereo 3D edition of SparkyLinux: SparkyOS, powered by Debian.
+
+The `stereo3d` branch holds the version the distribution builds.
+The licence is unchanged; see [COPYING](COPYING).
+
+Sparky Stereo OS, Daniel Ramos's edition of SparkyLinux (by Paweł "pavroo" Pijanowski).
+
+---
+
 Wayland EGL External Platform library
 =====================================
 
