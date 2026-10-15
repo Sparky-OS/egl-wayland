@@ -36,6 +36,8 @@ main(void)
                   "wp_viewporter") == 0);
     assert(strcmp(wl_egl_stereo_viewport_interface.name,
                   "wp_viewport") == 0);
+    assert(wl_egl_stereo_content_manager_interface.version == 2);
+    assert(wl_egl_stereo_content_interface.version == 2);
     assert(create && strcmp(create->signature, "no") == 0);
     assert(set_content && strcmp(set_content->signature, "u") == 0);
     assert(get_viewport && strcmp(get_viewport->signature, "no") == 0);

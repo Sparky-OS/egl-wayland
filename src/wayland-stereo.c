@@ -12,7 +12,7 @@ static const struct wl_message manager_requests[] = {
 };
 
 const struct wl_interface wl_egl_stereo_content_manager_interface = {
-    "kde_stereo_content_manager_v1", 1, 2, manager_requests, 0, NULL,
+    "kde_stereo_content_manager_v1", 2, 2, manager_requests, 0, NULL,
 };
 
 static const struct wl_message content_requests[] = {
@@ -21,7 +21,7 @@ static const struct wl_message content_requests[] = {
 };
 
 const struct wl_interface wl_egl_stereo_content_interface = {
-    "kde_stereo_content_v1", 1, 2, content_requests, 0, NULL,
+    "kde_stereo_content_v1", 2, 2, content_requests, 0, NULL,
 };
 
 static const struct wl_interface *viewporter_types[] = {

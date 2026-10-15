@@ -2931,24 +2931,18 @@ EGLSurface wlEglCreatePlatformWindowSurfaceHook(EGLDisplay dpy,
         goto fail;
     }
 
-    if (surface->multiviewViewCount > 1) {
-        if (!display->stereoManager || !display->stereoViewporter) {
-            err = EGL_BAD_MATCH;
-            goto fail;
-        }
-        surface->stereoContent = wlEglStereoContentCreate(
-            display->stereoManager, surface->wlSurface);
-        surface->stereoViewport = wlEglStereoViewportGet(
-            display->stereoViewporter, surface->wlSurface);
-        if (!surface->stereoContent || !surface->stereoViewport) {
-            err = EGL_BAD_ALLOC;
-            goto fail;
-        }
-        wl_proxy_set_queue(surface->stereoContent, surface->wlEventQueue);
-        wl_proxy_set_queue(surface->stereoViewport, surface->wlEventQueue);
-        wlEglStereoContentSetContent(surface->stereoContent, 3);
-        wlEglStereoViewportSetDestination(surface->stereoViewport,
-                                           window->width, window->height);
+    /*
+     * From version 2 of kde_stereo_content_v1 the compositor takes a full
+     * side-by-side surface's size as one eye, so the surface needs no
+     * viewport of its own and the application's viewport stays free.
+     * Version 1 needs a viewport destination of one eye.
+     */
+    if (surface->multiviewViewCount > 1 &&
+        (!display->stereoManager ||
+         (wl_proxy_get_version(display->stereoManager) < 2 &&
+          !display->stereoViewporter))) {
+        err = EGL_BAD_MATCH;
+        goto fail;
     }
 
     /*
@@ -3006,6 +3000,33 @@ EGLSurface wlEglCreatePlatformWindowSurfaceHook(EGLDisplay dpy,
     err = create_surface_context(surface);
     if (err != EGL_SUCCESS) {
         goto fail;
+    }
+
+    /*
+     * Declare the two views only once the driver has accepted the surface,
+     * so that a refused stereo surface leaves nothing on the wl_surface that
+     * the application may then use for a 2D surface.
+     */
+    if (surface->multiviewViewCount > 1) {
+        surface->stereoContent = wlEglStereoContentCreate(
+            display->stereoManager, surface->wlSurface);
+        if (!surface->stereoContent) {
+            err = EGL_BAD_ALLOC;
+            goto fail;
+        }
+        wl_proxy_set_queue(surface->stereoContent, surface->wlEventQueue);
+        if (wl_proxy_get_version(display->stereoManager) < 2) {
+            surface->stereoViewport = wlEglStereoViewportGet(
+                display->stereoViewporter, surface->wlSurface);
+            if (!surface->stereoViewport) {
+                err = EGL_BAD_ALLOC;
+                goto fail;
+            }
+            wl_proxy_set_queue(surface->stereoViewport, surface->wlEventQueue);
+            wlEglStereoViewportSetDestination(surface->stereoViewport,
+                                               surface->width, surface->height);
+        }
+        wlEglStereoContentSetContent(surface->stereoContent, 3);
     }
 
     surface->swapInterval = 1; // Default swap interval is 1

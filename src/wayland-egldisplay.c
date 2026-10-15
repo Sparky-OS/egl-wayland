@@ -491,7 +491,8 @@ registry_handle_global(void *data,
     } else if (strcmp(interface,
                       wl_egl_stereo_content_manager_interface.name) == 0) {
         display->stereoManager = wl_registry_bind(
-            registry, name, &wl_egl_stereo_content_manager_interface, 1);
+            registry, name, &wl_egl_stereo_content_manager_interface,
+            version > 2 ? 2 : version);
     } else if (strcmp(interface,
                       wl_egl_stereo_viewporter_interface.name) == 0) {
         display->stereoViewporter = wl_registry_bind(
@@ -1651,7 +1652,9 @@ EGLBoolean wlEglInitializeHook(EGLDisplay dpy, EGLint *major, EGLint *minor)
         goto fail;
     }
 
-    if (display->stereoManager && display->stereoViewporter &&
+    if (display->stereoManager &&
+        (wl_proxy_get_version(display->stereoManager) >= 2 ||
+         display->stereoViewporter) &&
         !wlEglFindExtension("EGL_EXT_multiview_window",
                             display->extensionString)) {
         const size_t old_len = strlen(display->extensionString);
