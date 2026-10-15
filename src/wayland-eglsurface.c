@@ -3058,6 +3058,20 @@ fail:
         if (surface->drmSyncobjHandle) {
             drmSyncobjDestroy(display->drmFd, surface->drmSyncobjHandle);
         }
+        /*
+         * wlEglDestroySurface() only frees surfaces in the display's list,
+         * which this one never joined. Destroy its explicit sync objects here,
+         * or the wl_surface keeps a wp_linux_drm_syncobj_surface_v1 and the
+         * application's next EGLSurface for it fails with a protocol error.
+         */
+        if (surface->wlSyncobjSurf) {
+            wp_linux_drm_syncobj_surface_v1_destroy(surface->wlSyncobjSurf);
+            surface->wlSyncobjSurf = NULL;
+        }
+        if (surface->wlAcquireTimeline) {
+            wp_linux_drm_syncobj_timeline_v1_destroy(surface->wlAcquireTimeline);
+            surface->wlAcquireTimeline = NULL;
+        }
         wlEglDestroySurface(display, surface);
     }
 
