@@ -1652,9 +1652,18 @@ EGLBoolean wlEglInitializeHook(EGLDisplay dpy, EGLint *major, EGLint *minor)
         goto fail;
     }
 
+    /*
+     * The two views are drawn by the driver, so the window takes them only
+     * when the driver's own display offers EGL_EXT_multiview_window; a
+     * driver without it refuses EGL_MULTIVIEW_VIEW_COUNT_EXT when the surface
+     * is created. Offering the extension then would only send programs that
+     * check it into a failed surface instead of a layer that can provide
+     * the views.
+     */
     if (display->stereoManager &&
         (wl_proxy_get_version(display->stereoManager) >= 2 ||
          display->stereoViewporter) &&
+        dev_exts && wlEglFindExtension("EGL_EXT_multiview_window", dev_exts) &&
         !wlEglFindExtension("EGL_EXT_multiview_window",
                             display->extensionString)) {
         const size_t old_len = strlen(display->extensionString);
